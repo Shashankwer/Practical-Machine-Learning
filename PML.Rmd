@@ -1,0 +1,104 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Shashank Nigam"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+##Introduction:
+
+The project is to correctly classify the data received the class of the barbell lifts from the data obtained from the belt,forearm,arm and dumbell of 6 participants in 5 different ways: exactly according to the specification(class A), throwing the elbows to the front(Class B),lifting the dumbell only halfway(Class C),lowering dumbell only half way(Class D) and throwing the hips to the forward(Class E). 
+
+1. Reading Data
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+data<-data<-read.csv("PMLTraining.csv")
+dim(data)
+summary(data)
+```
+
+As seen from the data set it can be seen that the data contains missing or null values for the whose names starts with max,min,std,avg,std,skewness,kurtosis. 
+Cleaning data to remove the variables not required  from the datasets
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+num<-c(grep(c("max*"),names(data)),grep("kurtosis*",names(data)),grep("skewness*",names(data)),grep("min*",names(data)),grep("amplitude*",names(data)),grep("var*",names(data)),grep("avg*",names(data)),grep("std*",names(data)))
+data<-data[,-num]
+dim(data)
+```
+
+###Analysing the Data: 
+
+The relation of the data with the class variable can be studied using the following  plots. The variables taken for analysis are total acceleration of beelt arm dumbell and forearm:
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+par(mfrow=c(2,2))
+plot(data$total_accel_belt,col=data$classe,xlab="index",ylab="Belt Accerlation")
+plot(data$total_accel_arm,col=data$classe,xlab="index",ylab="Arm Accerlation")
+plot(data$total_accel_dumbbell,col=data$classe,xlab="index",ylab="Dumbell Accerlation")
+plot(data$total_accel_forearm,col=data$classe,xlab="index",ylab="Forearm Accerlation")
+```
+
+As seen the data seems to be uniformly distributed accross all classes and there appears no specific linear correlation of the data with classes. 
+
+###Applying Subsampling:
+The model is build using the bootstraping method for subsampling. The bootstraping without replacement is used to create a training and a test set on a probability of 75%.For reproducibility the seed is set to 1234
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(1234)
+library(caret)
+inTrain<-createDataPartition(data$classe,p=0.75,list=FALSE)
+training<-data[inTrain,]
+testing<-data[-inTrain,]
+```
+
+For the cross validation repeated cross validation is used on the traing data is considered with 10 repeats and 10 folds.
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+crl<-trainControl(method="repeatedcv",number=10,repeats=10)
+```
+
+###Fitting models
+The classification requires the data to be classified into one of the 6 classes. Classification trees gives a better classification for the classes. Considering the model fit using regression partitioning and regression trees. 
+```{r echo=FALSE,warning=FALSE,message=FALSE} 
+mod1<-train(classe~.,data=training,method="rpart",trControl=crl)
+mod2<-train(classe~.,data=training,method="rf",trControl=crl)
+```
+
+For the following models below are the fits
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+dev.off()
+mod1
+plot(mod1$finalModel)
+text(mod1$finalModel,use.n=TRUE,all=TRUE,cex=0.5)
+```
+For the regression partitioning complexity parameter choosen for the final model is 0.2437.  
+The model plot shows reduced accuracy as the cp reduces. as per below plot.
+```{r echo=FALSE,warning=FALSE}
+plot(mod1)
+```
+This can be confirmed with the accuracy obtained by the fitting the training data(separated using bootstrapping) as follows:
+
+```{r}
+confusionMatrix(predict(mod1,training),training$classe)
+```
+
+An accuracy of 66.17% is obtained giving high out of sample error
+
+2. Fitting Random Forest:
+Model2 fits the random forest with the rest of the models. 10 samples using repeated crossvalidation along with 10 repeats results in 100 tress constructed at random. The accuracy of the model can be shown below
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+mod2
+plot(mod2)
+plot(mod2$finalModel)
+```
+
+Its seen that the accuracy remains between 99.7 aand 99.8 As the number of trees increase the accuracy increases. The data can be verifed by fitting the training data as below:
+```{r}
+confusionMatrix(predict(mod2,testing),testing$classe)
+```
+
+By above it can be shown that the data has very less out of sample error 0.01%
+
+##Conclusion:
+1. As the random forest gives a better fit for the model for predicting classes Model 2 which is build by random forest is choosen.
+2. The cross validation is done by repeated cross validation over 100 samples of the data taken after bootstrapping. 
+3. The out of sample error rate is assumed to be very low for the fit about 0.01%
